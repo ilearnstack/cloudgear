@@ -52,3 +52,10 @@ Deploying Openstack
 * Open Openstack Dashboard in browser from URL  http://<controller-ip>/horizon
 
 * Login with credentials  admin/secret
+
+
+Link to the detailed description of Deployment
+==============================================
+
+You can refer to the step by step guide at Our Blog http://ilearnstack.wordpress.com/2013/04/26/setting-up-a-single-node-openstack-environment/
+Please Post your Comments to the page or write to us at learnstack@googlegroups.com for any issues faced with the script.
