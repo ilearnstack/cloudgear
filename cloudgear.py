@@ -72,7 +72,7 @@ def print_format(string):
     print "+%s+" %("-" * len(string))  
     
 def execute(command, display=False):
-    print_format ("executing commnand : %s " % command)
+    print_format ("Executing  : %s " % command)
     process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     if display:
         while True:
