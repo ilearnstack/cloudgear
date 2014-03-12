@@ -6,6 +6,7 @@ import fcntl
 import struct
 import socket
 import subprocess
+import webbrowser
 
 # These are module names which are not installed by default.
 # These modules will be loaded later after downloading
@@ -72,10 +73,17 @@ def get_from_conf(conf_file, section, param):
 def print_format(string):
     print "+%s+" %("-" * len(string))
     print "|%s|" % string
+<<<<<<< HEAD
     print "+%s+" %("-" * len(string))
 
 def execute(command, display=False):
     print_format("Executing  :  %s " % command)
+=======
+    print "+%s+" %("-" * len(string))  
+    
+def execute(command, display=False):
+    print_format ("executing commnand : %s " % command)
+>>>>>>> 3784b62c22686cc0a2321f81a57ab4c003a217fd
     process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     if display:
         while True:
@@ -114,8 +122,8 @@ def initialize_system():
     execute("apt-get autoclean -y" , True)
     execute("apt-get update -y" , True)
     execute("apt-get install ubuntu-cloud-keyring python-setuptools python-iniparse python-psutil -y", True)
-    delete_file("/etc/apt/sources.list.d/grizzly.list")
-    execute("echo deb http://ubuntu-cloud.archive.canonical.com/ubuntu precise-updates/grizzly main >> /etc/apt/sources.list.d/grizzly.list")
+    delete_file("/etc/apt/sources.list.d/havana.list")
+    execute("echo deb http://ubuntu-cloud.archive.canonical.com/ubuntu precise-updates/havana main >> /etc/apt/sources.list.d/havana.list")
     execute("apt-get update -y", True)
 
     global iniparse
@@ -185,6 +193,7 @@ def _create_keystone_users():
     nova_service = execute("keystone service-create --name=nova --type=compute --description='Nova Compute Service'|grep ' id '|awk '{print $4}'")
     execute("keystone endpoint-create --region region --service_id=%s --publicurl='http://%s:8774/v2/$(tenant_id)s' --internalurl='http://127.0.0.1:8774/v2/$(tenant_id)s' --adminurl='http://127.0.0.1:8774/v2/$(tenant_id)s'" % (nova_service, ip_address))
 
+<<<<<<< HEAD
 
     #quantum
     quantum_user = execute("keystone user-create --tenant_id %s --name quantum --pass quantum --enabled true|grep ' id '|awk '{print $4}'" % service_tenant)
@@ -192,6 +201,15 @@ def _create_keystone_users():
 
     quantum_service = execute("keystone service-create --name=quantum --type=network  --description='OpenStack Networking service'|grep ' id '|awk '{print $4}'")
     execute("keystone endpoint-create --region region --service_id=%s --publicurl=http://%s:9696/ --internalurl=http://127.0.0.1:9696/ --adminurl=http://127.0.0.1:9696/" % (quantum_service, ip_address))
+=======
+    
+    #neutron
+    neutron_user = execute("keystone user-create --tenant_id %s --name neutron --pass neutron --enabled true|grep ' id '|awk '{print $4}'" % service_tenant)
+    execute("keystone user-role-add --user_id %s --tenant_id %s --role_id %s" % (neutron_user, service_tenant, admin_role))
+    
+    neutron_service = execute("keystone service-create --name=neutron --type=network  --description='OpenStack Networking service'|grep ' id '|awk '{print $4}'")
+    execute("keystone endpoint-create --region region --service_id=%s --publicurl=http://%s:9696/ --internalurl=http://127.0.0.1:9696/ --adminurl=http://127.0.0.1:9696/" % (neutron_service, ip_address))
+>>>>>>> 3784b62c22686cc0a2321f81a57ab4c003a217fd
 
     #write a rc file
     adminrc = "/root/adminrc"
@@ -275,6 +293,62 @@ def install_and_configure_glance():
     execute("service glance-registry restart", True)
 
 
+<<<<<<< HEAD
+=======
+def install_and_configure_neutron():
+    neutron_conf = "/etc/neutron/neutron.conf"
+    neutron_paste_conf = "/etc/neutron/api-paste.ini"
+    neutron_plugin_conf = "/etc/neutron/plugins/openvswitch/ovs_neutron_plugin.ini"
+    neutron_dhcp_ini="/etc/neutron/dhcp_agent.ini"
+    neutron_l3_ini="/etc/neutron/l3_agent.ini"
+	
+    execute_db_commnads("DROP DATABASE IF EXISTS neutron;")
+    execute_db_commnads("CREATE DATABASE neutron;")
+    execute_db_commnads("GRANT ALL PRIVILEGES ON neutron.* TO 'neutron'@'%' IDENTIFIED BY 'neutron';")
+    execute_db_commnads("GRANT ALL PRIVILEGES ON neutron.* TO 'neutron'@'localhost' IDENTIFIED BY 'neutron';")
+    
+    execute("apt-get install openvswitch-switch openvswitch-datapath-dkms -y", True)
+
+    execute("ovs-vsctl --may-exist add-br br-int")
+    execute("ovs-vsctl --may-exist add-br br-eth1") 
+    execute("ovs-vsctl --may-exist add-port br-eth1 eth1")
+    execute("ovs-vsctl --may-exist add-br br-ex")
+    
+    execute("apt-get install neutron-server neutron-plugin-openvswitch neutron-plugin-openvswitch-agent neutron-dhcp-agent neutron-l3-agent neutron-metadata-agent -y", True)
+    
+    add_to_conf(neutron_conf, "DEFAULT", "core_plugin", "neutron.plugins.openvswitch.ovs_neutron_plugin.OVSNeutronPluginV2")
+    add_to_conf(neutron_conf, "DEFAULT", "verbose", "true")
+    add_to_conf(neutron_conf, "DEFAULT", "debug", "true")
+    add_to_conf(neutron_conf, "DEFAULT", "auth_strategy", "keystone")
+    add_to_conf(neutron_conf, "DEFAULT", "rabbit_host", "127.0.0.1")
+    add_to_conf(neutron_conf, "DEFAULT", "rabbit_port", "5672")
+    add_to_conf(neutron_conf, "DEFAULT", "allow_overlapping_ips", "False")
+    add_to_conf(neutron_conf, "DEFAULT", "root_helper", "sudo neutron-rootwrap /etc/neutron/rootwrap.conf")
+    
+    add_to_conf(neutron_paste_conf, "filter:authtoken", "auth_host", "127.0.0.1")
+    add_to_conf(neutron_paste_conf, "filter:authtoken", "auth_port", "35357")
+    add_to_conf(neutron_paste_conf, "filter:authtoken", "auth_protocol", "http")
+    add_to_conf(neutron_paste_conf, "filter:authtoken", "admin_tenant_name", "service")
+    add_to_conf(neutron_paste_conf, "filter:authtoken", "admin_user", "neutron")
+    add_to_conf(neutron_paste_conf, "filter:authtoken", "admin_password", "neutron")
+    
+    add_to_conf(neutron_plugin_conf, "DATABASE", "sql_connection", "mysql://neutron:neutron@localhost/neutron")
+    add_to_conf(neutron_plugin_conf, "OVS", "bridge_mappings", "physnet1:br-eth1")
+    add_to_conf(neutron_plugin_conf, "OVS", "tenant_network_type", "vlan")
+    add_to_conf(neutron_plugin_conf, "OVS", "network_vlan_ranges", "physnet1:1000:2999")
+    add_to_conf(neutron_plugin_conf, "OVS", "integration_bridge", "br-int")
+    add_to_conf(neutron_plugin_conf, "securitygroup", "firewall_driver", "neutron.agent.linux.iptables_firewall.OVSHybridIptablesFirewallDriver")
+    
+    add_to_conf(neutron_dhcp_ini, "DEFAULT", "interface_driver", "neutron.agent.linux.interface.OVSInterfaceDriver")
+    add_to_conf(neutron_dhcp_ini, "DEFAULT", "dhcp_driver", "neutron.agent.linux.dhcp.Dnsmasq")
+
+    add_to_conf(neutron_l3_ini, "DEFAULT", "interface_driver", "neutron.agent.linux.interface.OVSInterfaceDriver")
+  
+    execute("service neutron-server restart", True)
+    execute("service neutron-plugin-openvswitch-agent restart", True)
+    execute("service neutron-dhcp-agent restart", True) 
+    execute("service neutron-l3-agent restart", True)
+>>>>>>> 3784b62c22686cc0a2321f81a57ab4c003a217fd
 
 
 def install_and_configure_nova():
@@ -286,8 +360,13 @@ def install_and_configure_nova():
     execute_db_commnads("CREATE DATABASE nova;")
     execute_db_commnads("GRANT ALL PRIVILEGES ON nova.* TO 'nova'@'%' IDENTIFIED BY 'nova';")
     execute_db_commnads("GRANT ALL PRIVILEGES ON nova.* TO 'nova'@'localhost' IDENTIFIED BY 'nova';")
+<<<<<<< HEAD
 
     execute("apt-get install kvm libvirt-bin -y")
+=======
+    
+    execute("apt-get install kvm libvirt-bin python-libvirt -y")
+>>>>>>> 3784b62c22686cc0a2321f81a57ab4c003a217fd
     execute("apt-get install nova-api nova-cert nova-scheduler nova-conductor nova-compute-kvm novnc nova-consoleauth nova-novncproxy -y", True)
 
 
@@ -306,17 +385,18 @@ def install_and_configure_nova():
     add_to_conf(nova_conf, "DEFAULT", "rabbit_host", "127.0.0.1")
     add_to_conf(nova_conf, "DEFAULT", "sql_connection", "mysql://nova:nova@localhost/nova")
     add_to_conf(nova_conf, "DEFAULT", "glance_api_servers", "127.0.0.1:9292")
-    add_to_conf(nova_conf, "DEFAULT", "compute_driver", "libvirt.LibvirtDriver")
     add_to_conf(nova_conf, "DEFAULT", "dhcpbridge_flagfile", "/etc/nova/nova.conf")
-    add_to_conf(nova_conf, "DEFAULT", "firewall_driver", "nova.virt.libvirt.firewall.IptablesFirewallDriver")
+    add_to_conf(nova_conf, "DEFAULT", "firewall_driver", "nova.virt.firewall.NoopFirewallDriver")
+    add_to_conf(nova_conf, "DEFAULT", "security_group_api", "neutron")
+    add_to_conf(nova_conf, "DEFAULT", "libvirt_vif_driver", "nova.virt.libvirt.vif.LibvirtHybridOVSBridgeDriver")
     add_to_conf(nova_conf, "DEFAULT", "root_helper", "sudo nova-rootwrap /etc/nova/rootwrap.conf")
-    add_to_conf(nova_conf, "DEFAULT", "compute_driver", "libvirt.LibvirtDriver")
     add_to_conf(nova_conf, "DEFAULT", "auth_strategy", "keystone")
     add_to_conf(nova_conf, "DEFAULT", "novnc_enabled", "true")
     add_to_conf(nova_conf, "DEFAULT", "novncproxy_base_url", "http://%s:6080/vnc_auto.html" % ip_address)
     add_to_conf(nova_conf, "DEFAULT", "novncproxy_port", "6080")
     add_to_conf(nova_conf, "DEFAULT", "vncserver_proxyclient_address", ip_address)
     add_to_conf(nova_conf, "DEFAULT", "vncserver_listen", "0.0.0.0")
+<<<<<<< HEAD
     add_to_conf(nova_conf, "DEFAULT", "network_api_class", "nova.network.quantumv2.api.API")
     add_to_conf(nova_conf, "DEFAULT", "quantum_admin_username", "quantum")
     add_to_conf(nova_conf, "DEFAULT", "quantum_admin_password", "quantum")
@@ -332,6 +412,20 @@ def install_and_configure_nova():
     add_to_conf(nova_compute_conf, "DEFAULT", "libvirt_vif_type", "ethernet")
     add_to_conf(nova_compute_conf, "DEFAULT", "libvirt_vif_driver", "nova.virt.libvirt.vif.QuantumLinuxBridgeVIFDriver")
 
+=======
+    add_to_conf(nova_conf, "DEFAULT", "network_api_class", "nova.network.neutronv2.api.API")
+    add_to_conf(nova_conf, "DEFAULT", "neutron_admin_username", "neutron")
+    add_to_conf(nova_conf, "DEFAULT", "neutron_admin_password", "neutron")
+    add_to_conf(nova_conf, "DEFAULT", "neutron_admin_tenant_name", "service")
+    add_to_conf(nova_conf, "DEFAULT", "neutron_admin_auth_url", "http://127.0.0.1:5000/v2.0/")
+    add_to_conf(nova_conf, "DEFAULT", "neutron_auth_strategy", "keystone")
+    add_to_conf(nova_conf, "DEFAULT", "neutron_url", "http://127.0.0.1:9696/")
+      
+    add_to_conf(nova_compute_conf, "DEFAULT", "libvirt_type", "qemu")
+    add_to_conf(nova_compute_conf, "DEFAULT", "compute_driver", "libvirt.LibvirtDriver")
+    add_to_conf(nova_compute_conf, "DEFAULT", "libvirt_vif_type", "ethernet")
+    
+>>>>>>> 3784b62c22686cc0a2321f81a57ab4c003a217fd
     execute("nova-manage db sync")
 
     execute("service libvirt-bin restart", True)
@@ -400,12 +494,28 @@ def install_and_configure_dashboard():
     execute("apt-get install openstack-dashboard -y", True)
     execute("service apache2 restart", True)
 
+def launch_horizon():
+    url = 'http://localhost/horizon'
+    if sys.platform == 'Linux':
+        subprocess.Popen(['open', url])
+    else:
+        webbrowser.open_new_tab(url)
+
 initialize_system()
 install_rabbitmq()
 install_database()
 install_and_configure_keystone()
 install_and_configure_glance()
+<<<<<<< HEAD
 install_and_configure_nova()
 install_and_configure_quantum()
 install_and_configure_dashboard()
 print_format(" Installation successfull! Login into horizon http://%s/horizon  Username:admin  Password:secret " % ip_address)
+=======
+install_and_configure_neutron()
+install_and_configure_nova()
+install_and_configure_dashboard()
+print_format(" Installation successfull! Login into horizon http://%s/horizon  Username:admin  Password:secret " % ip_address)
+print_format(" Please wait while script open your browser")
+launch_horizon()
+>>>>>>> 3784b62c22686cc0a2321f81a57ab4c003a217fd
